@@ -5,3 +5,4 @@
 3. Diffusion, Flow Matching, and TinyVLA ([HW_03](./03-diffusion-policy-flow-matching/seminar_03_diffusion_flow_student.ipynb))
 4. Sequence Models and Action Chunking with ACT ([HW_04](./04-action-chunking/seminar_04_action_chunking_student.ipynb))
 5. From LLM to VLA ([HW_05](./05-from-llm-to-vla/seminar_05_from_llm_to_vla_student.ipynb))
+6. Modern Continuous VLA: SmolVLA, π₀ and π₀.₅ ([HW_06](./06-modern-vla/seminar_06_modern_vla_student.ipynb))
