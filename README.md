@@ -6,3 +6,4 @@
 4. Sequence Models and Action Chunking with ACT ([HW_04](./04-action-chunking/seminar_04_action_chunking_student.ipynb))
 5. From LLM to VLA ([HW_05](./05-from-llm-to-vla/seminar_05_from_llm_to_vla_student.ipynb))
 6. Modern Continuous VLA: SmolVLA, π₀ and π₀.₅ ([HW_06](./06-modern-vla/seminar_06_modern_vla_student.ipynb))
+7. World-Action Models: Cosmos Policy and UVA ([HW_07](./07-world-action-models/seminar_07_world_action_models_student.ipynb))
