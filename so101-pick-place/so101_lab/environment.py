@@ -312,6 +312,7 @@ class Environment:
 
     def reset(self, seed):
         from isaacsim.core.utils.types import ArticulationAction
+        from pxr import Gf
 
         self.world.reset()
         self._configure_drives()
@@ -339,7 +340,9 @@ class Environment:
             0.0,
             1.0,
         )
-        self.cube.set_color(np.asarray(cube_color, dtype=float))
+        self.cube.get_applied_visual_material().set_color(
+            np.asarray(cube_color, dtype=float)
+        )
         self.light.GetIntensityAttr().Set(light_intensity)
         self.light.GetColorAttr().Set(Gf.Vec3f(*background_color.tolist()))
         self.task = (

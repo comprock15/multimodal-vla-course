@@ -68,7 +68,7 @@ The last two commands change host configuration and restart Docker; coordinate
 with other users of a shared machine. They are installation instructions, not
 commands performed by the module.
 
-## Fresh-clone quickstart (local wheel installation)
+## Fresh-clone quickstart (Docker)
 
 Run these commands in a terminal on the GPU host. No notebook is needed.
 
@@ -76,7 +76,7 @@ Run these commands in a terminal on the GPU host. No notebook is needed.
 git clone https://github.com/wingrune/multimodal-vla-course.git
 cd multimodal-vla-course/so101-pick-place
 
-./scripts/setup-local.sh
+docker build -t so101-course:0.1 .
 export ACCEPT_EULA=Y
 export GPU_INDEX=0
 ./scripts/run-local.sh doctor
@@ -89,6 +89,13 @@ export GPU_INDEX=0
 Use a repository revision containing this module. Until the changes are published,
 these commands describe the intended published checkout; a clone of an older
 revision will not contain this directory.
+
+The first build installs the simulator and policy runtimes into the course image.
+`run-local.sh` then mounts this checkout at `/opt/so101`, so edits to Python code,
+configs, scripts and notebooks are used immediately; they do not require an image
+rebuild. Rebuild the image when you change the Dockerfile or Python dependency
+locks. If you already have the working `so101-course:0.1` image from `run.sh`,
+you can skip the build and use the same commands with `run-local.sh`.
 
 `fetch` verifies SHA-256 and size for every file in [sources.lock.json](sources.lock.json).
 The robot URDF and all referenced meshes are pinned to a Git commit. The model,
@@ -119,32 +126,13 @@ GPU 0**. For another host GPU, change `GPU_INDEX`, leaving CLI `--gpu 0` and
 for a manually launched container with a working X11/Wayland display and the
 required display mounts; the standard wrapper deliberately targets headless use.
 
-## Separate wheel installation and an existing host driver
+## Local code and GPU selection
 
-The alternative setup reproduces the B1K installation method: a Python 3.11
-virtual environment, official NVIDIA 5.1.0.0 wheels including extension caches,
-and PyTorch CUDA 12.6. It uses the same public base image for Linux libraries and
-Python, and keeps two independent environments under this module's `.runtime/`.
-It does not mount or depend on any B1K checkout, environment or local image.
-Launch these environments with `run-local.sh`; their Python interpreter belongs
-to the container, so they are not host Python environments to activate directly.
-Both environments have complete hash locks. See NVIDIA's
-[Python installation documentation](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_python.html).
-
-```bash
-./scripts/setup-local.sh
-export ACCEPT_EULA=Y GPU_INDEX=0
-./scripts/run-local.sh doctor
-./scripts/run-local.sh fetch
-./scripts/run-local.sh check-scene --output runs/local-scene-check
-SO101_RUNNER=./scripts/run-local.sh ./scripts/acceptance.sh
-```
-
-The downloader resumes large wheels with HTTP byte ranges and verifies every file
-against the committed lock. `.runtime/wheels` is optional download storage; an
-empty directory works. Failed downloads can be resumed by repeating setup. On
-hosts affected by the NGC BuildKit issue, use
-`DOCKER_BUILDKIT=0 SO101_BUILD_NETWORK=host ./scripts/setup-local.sh`.
+`run-local.sh` uses the course image's tested simulator and policy environments,
+and bind mounts the current checkout over the source baked into that image. This
+avoids the local wheel runtime that triggered an `ld.so` assertion during Kit
+startup on this host. The image itself is built once; source changes are visible
+on the next invocation without rebuilding.
 
 If the NVIDIA Container Toolkit hook fails with an NVML error before Python
 starts, but `nvidia-smi -i 0` and the selected GPU still work, both launchers support
@@ -298,8 +286,8 @@ Open [notebooks/pick_and_place.ipynb](notebooks/pick_and_place.ipynb) in Jupyter
 the GPU host. It calls the exact same CLI using `scripts/run-local.sh`, displays the two
 camera images, runs collection/export/evaluation, and reads the saved results.
 The notebook is not a Google Colab environment: the Docker daemon and RTX renderer
-must be on the machine running its kernel. For the local wheel installation, set
-`SO101_RUNNER=scripts/run-local.sh` before starting Jupyter.
+must be on the machine running its kernel. Set `SO101_RUNNER=scripts/run-local.sh`
+before starting Jupyter when you want it to use this checkout through the wrapper.
 
 For a project, copy `configs/default.json` to `configs/project.json`, edit camera
 poses, table layout, robot drives or task text, and pass
@@ -330,9 +318,9 @@ when a model produces numerically valid actions.
 ## Verification commands
 
 ```bash
-# No GPU needed for the local environment check:
+# Runs with the course image; no local wheel setup is needed:
 ./scripts/run-local.sh test
-# GPU acceptance, after local setup and fetch:
+# GPU acceptance, after building the image and fetching assets:
 SO101_RUNNER=./scripts/run-local.sh ./scripts/acceptance.sh
 ```
 
