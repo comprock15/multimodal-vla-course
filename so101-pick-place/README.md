@@ -68,7 +68,7 @@ The last two commands change host configuration and restart Docker; coordinate
 with other users of a shared machine. They are installation instructions, not
 commands performed by the module.
 
-## Fresh-clone quickstart
+## Fresh-clone quickstart (local wheel installation)
 
 Run these commands in a terminal on the GPU host. No notebook is needed.
 
@@ -76,14 +76,14 @@ Run these commands in a terminal on the GPU host. No notebook is needed.
 git clone https://github.com/wingrune/multimodal-vla-course.git
 cd multimodal-vla-course/so101-pick-place
 
-docker build --pull --no-cache -t so101-course:0.1 .
+./scripts/setup-local.sh
 export ACCEPT_EULA=Y
 export GPU_INDEX=0
-./scripts/run.sh doctor
-./scripts/run.sh fetch
-./scripts/run.sh convert
-./scripts/run.sh check-kinematics
-./scripts/run.sh check-scene --output runs/scene-check
+./scripts/run-local.sh doctor
+./scripts/run-local.sh fetch
+./scripts/run-local.sh convert
+./scripts/run-local.sh check-kinematics
+./scripts/run-local.sh check-scene --output runs/scene-check
 ```
 
 Use a repository revision containing this module. Until the changes are published,
@@ -110,7 +110,7 @@ clamping at very small focal lengths; depth of field is disabled. See the
 [USD camera units](https://docs.omniverse.nvidia.com/materials-and-rendering/latest/cameras.html). Run a short static scene with:
 
 ```bash
-./scripts/run.sh scene --seed 0 --seconds 5 --output runs/preview
+./scripts/run-local.sh scene --seed 0 --seconds 5 --output runs/preview
 ```
 
 The wrapper selects one physical GPU with Docker; **inside the container it is
@@ -168,11 +168,11 @@ samples retain their fixed-rate meaning.
 ## Expert, demonstrations, and LeRobot
 
 ```bash
-./scripts/run.sh evaluate --policy expert --output runs/expert-eval --video
-./scripts/run.sh audit --run runs/expert-eval
-./scripts/run.sh collect --seed 10000 --episodes 10 --output runs/demos --video
-./scripts/run.sh export --run runs/demos --dataset runs/lerobot-demos
-./scripts/run.sh check-dataset --dataset runs/lerobot-demos
+./scripts/run-local.sh evaluate --policy expert --output runs/expert-eval --video
+./scripts/run-local.sh audit --run runs/expert-eval
+./scripts/run-local.sh collect --seed 10000 --episodes 10 --output runs/demos --video
+./scripts/run-local.sh export --run runs/demos --dataset runs/lerobot-demos
+./scripts/run-local.sh check-dataset --dataset runs/lerobot-demos
 ```
 
 The expert follows Cartesian approach, descent, finger closure, lift, transfer,
@@ -182,12 +182,22 @@ gravity and finger contact carry the cube. There is no attachment joint, suction
 parenting, or object teleportation during an episode. `reset` is the only place
 that sets cube poses directly.
 
-The table, 3 cm red cube, fixed 10×10 cm blue target, joint gains, speed/effort
-limits, sampling bounds, camera poses and task text are configured in
+The table, 3 cm cube, fixed 10×10 cm blue target, joint gains, speed/effort
+limits, sampling bounds, camera poses and visual variation ranges are configured in
 [configs/default.json](configs/default.json). Geometry uses metres, seconds and
 radians. The small sampling rectangle is kinematically checked; its physical
 reachability remains an acceptance test. The expert can see the cube pose.
 SmolVLA only receives two RGB images, six measured joint angles and task text.
+
+Collection uses each episode seed to select a red, green or blue cube, vary dome
+light intensity, and slightly jitter the dome-light background color. The selected
+cube color is included in that episode's task text, result metadata and exported
+LeRobot task label. For example, collect 1,000 episodes with seeds 10000–10999:
+
+```bash
+./scripts/run-local.sh collect --seed 10000 --episodes 1000 --output runs/demos-1000
+./scripts/run-local.sh export --run runs/demos-1000 --dataset runs/lerobot-demos-1000
+```
 
 Every episode first records lossless PNG images, the pre-action state, the actual
 rate-limited joint target, timestamp, transition termination, and physics samples.
@@ -202,9 +212,9 @@ checkpoint calibration described below, with provenance alongside the dataset.
 ## Evaluate the pretrained policy
 
 ```bash
-./scripts/run.sh policy-smoke
-./scripts/run.sh evaluate --policy smolvla --output runs/smolvla-eval --video
-./scripts/run.sh audit --run runs/smolvla-eval
+./scripts/run-local.sh policy-smoke
+./scripts/run-local.sh evaluate --policy smolvla --output runs/smolvla-eval --video
+./scripts/run-local.sh audit --run runs/smolvla-eval
 ```
 
 The checkpoint is
@@ -285,14 +295,14 @@ do not present a tuned seed subset as the fixed benchmark.
 ## Notebook and student projects
 
 Open [notebooks/pick_and_place.ipynb](notebooks/pick_and_place.ipynb) in Jupyter on
-the GPU host. It calls the exact same CLI using `scripts/run.sh`, displays the two
+the GPU host. It calls the exact same CLI using `scripts/run-local.sh`, displays the two
 camera images, runs collection/export/evaluation, and reads the saved results.
 The notebook is not a Google Colab environment: the Docker daemon and RTX renderer
 must be on the machine running its kernel. For the local wheel installation, set
 `SO101_RUNNER=scripts/run-local.sh` before starting Jupyter.
 
 For a project, copy `configs/default.json` to `configs/project.json`, edit camera
-poses, table layout, robot drives or task text, rebuild the image, and pass
+poses, table layout, robot drives or task text, and pass
 `--config configs/project.json` to simulator commands. The benchmark CLI enforces
 the 3 cm cube, 10×10 cm target and 10 Hz checkpoint contract. If you introduce a
 new task or robot, define a new evaluation protocol and adapter as well. Repeat
@@ -320,10 +330,10 @@ when a model produces numerically valid actions.
 ## Verification commands
 
 ```bash
-# No GPU needed for these container commands:
-docker run --rm so101-course:0.1 test
-# GPU acceptance, after the build and fetch:
-./scripts/acceptance.sh
+# No GPU needed for the local environment check:
+./scripts/run-local.sh test
+# GPU acceptance, after local setup and fetch:
+SO101_RUNNER=./scripts/run-local.sh ./scripts/acceptance.sh
 ```
 
 `acceptance.sh` uses new output directories, checks scene/reset, requires the

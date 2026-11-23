@@ -39,7 +39,7 @@ class EpisodeWriter:
         )
         record = {
             **result,
-            "task": self.cfg["task"],
+            "task": result.get("task", self.cfg["task"]),
             "fps": self.cfg["control_hz"],
             "frames": len(self.rows),
             "state_units": "radians",

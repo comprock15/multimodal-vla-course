@@ -57,6 +57,7 @@ class GPUMonitor:
 
 
 def run(env, cfg, args, lock):
+    env.visual_variation_enabled = args.command == "collect"
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     seeds = (

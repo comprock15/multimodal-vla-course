@@ -34,7 +34,12 @@
       0.8,
       0.04,
       0.03
-    ]
+    ],
+    "color_variation": {
+      "red": [0.8, 0.04, 0.03],
+      "green": [0.04, 0.65, 0.08],
+      "blue": [0.04, 0.15, 0.8]
+    }
   },
   "target": {
     "center_xy": [
@@ -50,6 +55,13 @@
       0.15,
       0.8
     ]
+  },
+  "visual_variation": {
+    "light_intensity": [850.0, 1150.0],
+    "background_color": {
+      "base": [0.72, 0.76, 0.82],
+      "jitter": 0.035
+    }
   },
   "robot": {
     "printed_color": [1.0, 1.0, 1.0],

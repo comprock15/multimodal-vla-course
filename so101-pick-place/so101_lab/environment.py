@@ -260,6 +260,13 @@ class Environment:
         )
         light = UsdLux.DomeLight.Define(stage, "/World/light")
         light.CreateIntensityAttr(1000.0)
+        light.CreateColorAttr(Gf.Vec3f(0.72, 0.76, 0.82))
+        self.light = light
+        self.cube_color_variations = cfg["cube"].get(
+            "color_variation", {"red": cfg["cube"]["color"]}
+        )
+        self.visual_variation = cfg.get("visual_variation", {})
+        self.visual_variation_enabled = False
         self.cameras = {}
         for name in ("top", "wrist"):
             c = cfg["cameras"][name]
@@ -311,6 +318,41 @@ class Environment:
         self.seed = int(seed)
         rng = np.random.default_rng(self.seed)
         xy = rng.uniform(self.cfg["cube"]["xy_min"], self.cfg["cube"]["xy_max"])
+        color_names = list(self.cube_color_variations)
+        color_index = (self.seed - 10000) % len(color_names)
+        color_name = color_names[color_index] if self.visual_variation_enabled else "red"
+        if color_name not in self.cube_color_variations:
+            color_name = color_names[0]
+        cube_color = self.cube_color_variations[color_name]
+        light_range = self.visual_variation.get("light_intensity", [1000.0, 1000.0])
+        light_intensity = (
+            float(rng.uniform(light_range[0], light_range[1]))
+            if self.visual_variation_enabled
+            else 1000.0
+        )
+        bg = self.visual_variation.get("background_color", {})
+        base_bg = np.asarray(bg.get("base", [0.72, 0.76, 0.82]), dtype=float)
+        jitter = float(bg.get("jitter", 0.0))
+        background_color = np.clip(
+            base_bg
+            + (rng.uniform(-jitter, jitter, 3) if self.visual_variation_enabled else 0),
+            0.0,
+            1.0,
+        )
+        self.cube.set_color(np.asarray(cube_color, dtype=float))
+        self.light.GetIntensityAttr().Set(light_intensity)
+        self.light.GetColorAttr().Set(Gf.Vec3f(*background_color.tolist()))
+        self.task = (
+            f"Pick up the {color_name} block and place it on the blue target."
+            if self.visual_variation_enabled
+            else self.cfg["task"]
+        )
+        self.variation = {
+            "cube_color_name": color_name,
+            "cube_color_rgb": list(cube_color),
+            "light_intensity": light_intensity,
+            "background_color_rgb": background_color.tolist(),
+        }
         home = np.array(self.cfg["robot"]["home_rad"], dtype=np.float32)
         self.robot.set_joint_positions(home, joint_indices=self.indices)
         self.robot.set_joint_velocities(np.zeros(6), joint_indices=self.indices)
@@ -355,7 +397,7 @@ class Environment:
             "state": self.robot.get_joint_positions(joint_indices=self.indices).astype(
                 np.float32
             ),
-            "task": self.cfg["task"],
+            "task": self.task,
         }
 
     def _capture(self, check_time=False):
@@ -455,6 +497,8 @@ class Environment:
         return {
             **self.tracker.result(),
             "seed": self.seed,
+            "task": self.task,
+            "visual_variation": self.variation,
             "sim_time_s": self.ticks / self.cfg["physics_hz"],
             "initial_position": self.initial_position.tolist(),
             "clipped_actions": self.clipped_actions,
