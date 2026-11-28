@@ -36,6 +36,7 @@ EVAL_SEEDS = (
     1901,
     2003,
 )
+COLOR_EVAL_SEEDS = tuple(range(3001, 3016))
 PROTOCOL = {
     "version": 1,
     "seeds": EVAL_SEEDS,

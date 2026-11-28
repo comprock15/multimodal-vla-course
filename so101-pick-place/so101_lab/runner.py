@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 import traceback
-from .config import ROOT, PROTOCOL, EVAL_SEEDS, fingerprint
+from .config import ROOT, PROTOCOL, EVAL_SEEDS, COLOR_EVAL_SEEDS, fingerprint
 from .expert import Expert
 from .recording import EpisodeWriter
 
@@ -57,12 +57,15 @@ class GPUMonitor:
 
 
 def run(env, cfg, args, lock):
-    env.visual_variation_enabled = args.command == "collect"
+    env.cube_color_variation_enabled = args.command in ("collect", "evaluate-colors")
+    env.lighting_variation_enabled = args.command == "collect"
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     seeds = (
         list(EVAL_SEEDS)
         if args.command == "evaluate"
+        else list(COLOR_EVAL_SEEDS)
+        if args.command == "evaluate-colors"
         else list(range(args.seed, args.seed + args.episodes))
     )
     if args.command == "collect" and (
@@ -82,6 +85,13 @@ def run(env, cfg, args, lock):
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "complete": False,
     }
+    if args.command == "evaluate-colors":
+        meta["benchmark"] = {
+            "name": "cube-color-15-v1",
+            "episodes_per_color": 5,
+            "colors": list(cfg["cube"].get("color_variation", {})),
+            "lighting_and_background_randomization": False,
+        }
     meta["code_sha256"] = fingerprint(
         {
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -116,6 +126,7 @@ def run(env, cfg, args, lock):
                 output / "policy.log",
                 python=args.policy_python,
                 device=args.policy_device or f"cuda:{args.gpu}",
+                model_path=args.policy_model,
             )
             meta["policy_runtime"] = policy.metadata
         else:
@@ -192,6 +203,36 @@ def run(env, cfg, args, lock):
                 and all(r.get("bilateral_contact_seen") for r in results)
             ),
         )
+        if args.command == "evaluate-colors":
+            colors = list(cfg["cube"].get("color_variation", {}))
+            meta["per_color"] = {
+                color: {
+                    "episodes": sum(
+                        r.get("visual_variation", {}).get("cube_color_name") == color
+                        for r in results
+                    ),
+                    "successes": sum(
+                        bool(r.get("success"))
+                        and r.get("visual_variation", {}).get("cube_color_name") == color
+                        for r in results
+                    ),
+                    "success_rate": (
+                        sum(
+                            bool(r.get("success"))
+                            and r.get("visual_variation", {}).get("cube_color_name") == color
+                            for r in results
+                        )
+                        / 5
+                        if complete
+                        and sum(
+                            r.get("visual_variation", {}).get("cube_color_name") == color
+                            for r in results
+                        ) == 5
+                        else None
+                    ),
+                }
+                for color in colors
+            }
         (output / "run.json").write_text(json.dumps(meta, indent=2) + "\n")
     print(
         json.dumps(

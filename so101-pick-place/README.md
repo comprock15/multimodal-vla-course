@@ -205,6 +205,69 @@ checkpoint calibration described below, with provenance alongside the dataset.
 ./scripts/run-local.sh audit --run runs/smolvla-eval
 ```
 
+To evaluate a locally fine-tuned checkpoint, select its `pretrained_model`
+directory. For the 20,000-step checkpoint created in the example above:
+
+```bash
+ACCEPT_EULA=Y GPU_INDEX=0 ./scripts/run-local.sh evaluate \
+  --policy smolvla \
+  --policy-model runs/smolvla-finetune-20261124-100439/checkpoints/020000/pretrained_model \
+  --output runs/smolvla-finetune-eval --video
+```
+
+The evaluator loads the checkpoint locally and uses this project’s cached VLM
+processor assets. `--policy-model` can point to any LeRobot SmolVLA
+`pretrained_model` directory containing `config.json` and `model.safetensors`.
+
+For a small color-robustness benchmark, `evaluate-colors` runs 15 fixed episodes:
+five each with a red, green, or blue cube. It holds lighting and background color
+at their defaults so the benchmark isolates cube color, and writes overall and
+per-color success rates to `run.json`:
+
+```bash
+ACCEPT_EULA=Y GPU_INDEX=0 ./scripts/run-local.sh evaluate-colors \
+  --policy smolvla \
+  --policy-device cpu \
+  --policy-model runs/smolvla-finetune-20261124-100439/checkpoints/020000/pretrained_model \
+  --output runs/smolvla-color-benchmark --video
+```
+
+The fixed color benchmark seeds are separate from demonstration seeds and the
+standard 20-seed evaluation protocol. The task instruction names the cube color
+for each episode. Use a new output directory for each run.
+
+The current image's PyTorch build lacks native kernels for RTX 50-series GPUs.
+For those GPUs, add `--policy-device cpu` to run policy inference on the CPU;
+Isaac Sim continues to use the GPU for simulation and rendering.
+
+## Fine-tune SmolVLA from a local dataset
+
+`scripts/train-smolvla.sh` trains from a local LeRobot dataset, disables Hub
+uploads and W&B, and writes checkpoints under `runs/`. Set `LEROBOT_TRAIN_BIN`
+and `SMOLVLA_BASE` to your local trainer executable and base checkpoint. The
+script maps its `top` and `left_wrist` camera features to SmolVLA's camera inputs.
+
+```bash
+# Example repo-relative trainer and checkpoint paths; defaults to runs/lerobot-demos.
+LEROBOT_TRAIN_BIN=.venv-lerobot/bin/lerobot-train \
+SMOLVLA_BASE=models/smolvla_base \
+./scripts/train-smolvla.sh
+
+# Or choose a dataset, output directory and shorter trial explicitly.
+LEROBOT_TRAIN_BIN=.venv-lerobot/bin/lerobot-train \
+SMOLVLA_BASE=models/smolvla_base \
+STEPS=2000 BATCH_SIZE=2 ./scripts/train-smolvla.sh \
+  runs/lerobot-demos runs/smolvla-trial
+```
+
+The script refuses to overwrite an existing output directory. Set `STEPS`,
+`BATCH_SIZE`, `NUM_WORKERS`, `SAVE_FREQ`, `LOG_FREQ`, or `DEVICE` to adjust the
+run; `SMOLVLA_BASE`, `LEROBOT_TRAIN_BIN`, and `DATASET_DIR` can override the
+machine-specific defaults. Additional `lerobot-train` options can be appended.
+The current `runs/lerobot-demos` dataset contains 10 episodes, suitable for
+checking the training pipeline; use a larger set of successful, varied episodes
+for meaningful adaptation.
+
 The checkpoint is
 [`Cache-SCA/smolvla_IsaacLab-SO101_pick_place_baseCaP_100epi_50ep`](https://huggingface.co/Cache-SCA/smolvla_IsaacLab-SO101_pick_place_baseCaP_100epi_50ep/tree/6c048c0a0574d88566cc83170341e5fd4306dae5).
 Its training data came from a different IsaacLab scene. This module measures

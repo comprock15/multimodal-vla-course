@@ -10,15 +10,21 @@ from .protocol import receive, send
 
 
 class SmolPolicy:
-    def __init__(self, data_dir, adapter, device):
+    def __init__(self, data_dir, adapter, device, model_path=None):
         import torch
         from lerobot.configs.policies import PreTrainedConfig
         from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
         from lerobot.policies.factory import make_pre_post_processors
 
-        fetch(data_dir, ("policy", "vlm"), offline=True)
+        fetch(data_dir, ("vlm",) if model_path else ("policy", "vlm"), offline=True)
         data_dir = Path(data_dir).resolve()
-        path = data_dir / "policy"
+        path = Path(model_path).resolve() if model_path else data_dir / "policy"
+        if not (path / "config.json").is_file() or not (
+            path / "model.safetensors"
+        ).is_file():
+            raise FileNotFoundError(
+                f"Policy checkpoint must contain config.json and model.safetensors: {path}"
+            )
         config = PreTrainedConfig.from_pretrained(path, local_files_only=True)
         config.device = device
         config.vlm_model_name = str(data_dir / "vlm")
@@ -78,9 +84,13 @@ def main():
     parser.add_argument("--data", required=True)
     parser.add_argument("--adapter", required=True)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--model-path", default=None)
     args = parser.parse_args()
     policy = SmolPolicy(
-        args.data, json.loads(Path(args.adapter).read_text()), args.device
+        args.data,
+        json.loads(Path(args.adapter).read_text()),
+        args.device,
+        model_path=args.model_path,
     )
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
         server.bind(args.socket)

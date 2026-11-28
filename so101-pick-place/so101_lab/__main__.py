@@ -22,6 +22,7 @@ def parser():
         "check-kinematics",
         "collect",
         "evaluate",
+        "evaluate-colors",
         "policy-smoke",
     ):
         s = subs.add_parser(command)
@@ -41,7 +42,13 @@ def parser():
         if command == "fetch":
             s.add_argument("--only", choices=("robot", "policy", "all"), default="all")
             s.add_argument("--offline", action="store_true")
-        if command in ("scene", "check-scene", "collect", "evaluate"):
+        if command in (
+            "scene",
+            "check-scene",
+            "collect",
+            "evaluate",
+            "evaluate-colors",
+        ):
             s.add_argument(
                 "--output",
                 type=Path,
@@ -50,8 +57,14 @@ def parser():
             )
             s.add_argument("--video", action="store_true")
             s.add_argument("--policy-python", default="/opt/policy/bin/python")
-        if command in ("collect", "evaluate"):
+        if command in ("collect", "evaluate", "evaluate-colors"):
             s.add_argument("--policy", choices=("expert", "smolvla"), default="expert")
+            s.add_argument(
+                "--policy-model",
+                type=Path,
+                default=None,
+                help="Local LeRobot policy checkpoint directory for SmolVLA",
+            )
             s.add_argument(
                 "--policy-device",
                 default=None,
@@ -271,7 +284,7 @@ def main(argv=None):
             print(convert_robot(args.data))
             return 0
         env = Environment(cfg, args.data)
-        if args.command in ("collect", "evaluate"):
+        if args.command in ("collect", "evaluate", "evaluate-colors"):
             from .runner import run
 
             run(env, cfg, args, lock)

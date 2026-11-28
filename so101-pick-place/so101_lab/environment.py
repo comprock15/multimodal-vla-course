@@ -266,7 +266,8 @@ class Environment:
             "color_variation", {"red": cfg["cube"]["color"]}
         )
         self.visual_variation = cfg.get("visual_variation", {})
-        self.visual_variation_enabled = False
+        self.cube_color_variation_enabled = False
+        self.lighting_variation_enabled = False
         self.cameras = {}
         for name in ("top", "wrist"):
             c = cfg["cameras"][name]
@@ -321,14 +322,14 @@ class Environment:
         xy = rng.uniform(self.cfg["cube"]["xy_min"], self.cfg["cube"]["xy_max"])
         color_names = list(self.cube_color_variations)
         color_index = (self.seed - 10000) % len(color_names)
-        color_name = color_names[color_index] if self.visual_variation_enabled else "red"
+        color_name = color_names[color_index] if self.cube_color_variation_enabled else "red"
         if color_name not in self.cube_color_variations:
             color_name = color_names[0]
         cube_color = self.cube_color_variations[color_name]
         light_range = self.visual_variation.get("light_intensity", [1000.0, 1000.0])
         light_intensity = (
             float(rng.uniform(light_range[0], light_range[1]))
-            if self.visual_variation_enabled
+            if self.lighting_variation_enabled
             else 1000.0
         )
         bg = self.visual_variation.get("background_color", {})
@@ -336,7 +337,7 @@ class Environment:
         jitter = float(bg.get("jitter", 0.0))
         background_color = np.clip(
             base_bg
-            + (rng.uniform(-jitter, jitter, 3) if self.visual_variation_enabled else 0),
+            + (rng.uniform(-jitter, jitter, 3) if self.lighting_variation_enabled else 0),
             0.0,
             1.0,
         )
@@ -347,7 +348,7 @@ class Environment:
         self.light.GetColorAttr().Set(Gf.Vec3f(*background_color.tolist()))
         self.task = (
             f"Pick up the {color_name} block and place it on the blue target."
-            if self.visual_variation_enabled
+            if self.cube_color_variation_enabled
             else self.cfg["task"]
         )
         self.variation = {

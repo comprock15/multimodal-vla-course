@@ -19,6 +19,7 @@ class PolicyClient:
         log_path,
         python="/opt/policy/bin/python",
         device="cuda:0",
+        model_path=None,
     ):
         self.directory = tempfile.TemporaryDirectory(prefix="so101-policy-")
         adapter_path = Path(self.directory.name) / "adapter.json"
@@ -38,28 +39,34 @@ class PolicyClient:
             PYTHONPATH=str(ROOT),
             HF_HUB_OFFLINE="1",
             TRANSFORMERS_OFFLINE="1",
+            PYTHONUNBUFFERED="1",
             TOKENIZERS_PARALLELISM="false",
         )
+        worker_args = [
+            python,
+            "-m",
+            "so101_lab.policy_worker",
+            "--socket",
+            path,
+            "--data",
+            str(Path(data_dir).resolve()),
+            "--adapter",
+            str(adapter_path),
+            "--device",
+            device,
+        ]
+        if model_path:
+            worker_args.extend(("--model-path", str(model_path)))
         self.process = subprocess.Popen(
-            [
-                python,
-                "-m",
-                "so101_lab.policy_worker",
-                "--socket",
-                path,
-                "--data",
-                str(Path(data_dir).resolve()),
-                "--adapter",
-                str(adapter_path),
-                "--device",
-                device,
-            ],
+            worker_args,
             env=env,
             stdout=self.log,
             stderr=subprocess.STDOUT,
         )
         try:
-            deadline = time.monotonic() + 240
+            # Cold SmolVLA initialization loads a large checkpoint into both the
+            # VLM module and the CUDA device; allow several minutes on consumer GPUs.
+            deadline = time.monotonic() + 600
             while not Path(path).exists():
                 if self.process.poll() is not None:
                     raise RuntimeError(f"Policy initialization failed; see {log_path}")

@@ -25,7 +25,7 @@ def run_simulator(args, argv):
         report = json.loads(status.read_text()) if status.exists() else None
     if (
         getattr(args, "video", False)
-        and args.command in ("collect", "evaluate")
+        and args.command in ("collect", "evaluate", "evaluate-colors")
         and (args.output / "run.json").exists()
     ):
         video_env = os.environ.copy()

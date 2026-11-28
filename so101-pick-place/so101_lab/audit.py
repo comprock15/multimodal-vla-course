@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 import numpy as np
-from .config import EVAL_SEEDS, PROTOCOL, fingerprint
+from .config import EVAL_SEEDS, COLOR_EVAL_SEEDS, PROTOCOL, fingerprint
 from .metrics import SuccessTracker
 
 
@@ -25,6 +25,8 @@ def audit(run, vram_budget_mib=None):
     )
     if metadata["mode"] == "evaluate":
         assert metadata["seeds"] == list(EVAL_SEEDS), "Evaluation seeds changed"
+    if metadata["mode"] == "evaluate-colors":
+        assert metadata["seeds"] == list(COLOR_EVAL_SEEDS), "Color benchmark seeds changed"
     support = cfg["table"]["center"][2] + cfg["table"]["size"][2] / 2
     seen, successes = [], 0
     for path in sorted(run.glob("*/seed-*/result.json")):
@@ -32,6 +34,13 @@ def audit(run, vram_budget_mib=None):
         if result.get("error"):
             raise AssertionError(f"Execution error in seed {result['seed']}")
         seen.append(result["seed"])
+        if metadata["mode"] == "evaluate-colors":
+            colors = list(cfg["cube"].get("color_variation", {}))
+            expected_color = colors[(result["seed"] - COLOR_EVAL_SEEDS[0]) % len(colors)]
+            actual_color = result.get("visual_variation", {}).get("cube_color_name")
+            assert actual_color == expected_color, (
+                f"Color mismatch for seed {result['seed']}: {actual_color} != {expected_color}"
+            )
         tracker = SuccessTracker(
             result["initial_position"][2], tuple(cfg["target"]["center_xy"]), support
         )
